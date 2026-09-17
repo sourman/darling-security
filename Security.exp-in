@@ -2194,4 +2194,5 @@ _SecSetCustomHomeURLString
 // but we still need them for our CFNetwork
 _cuDec64
 _cuEnc64
+_SecTrustCopyCertificateChain
 #endif

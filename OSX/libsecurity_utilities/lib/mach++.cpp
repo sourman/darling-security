@@ -223,7 +223,12 @@ mach_port_t Bootstrap::checkIn(const char *name) const
 mach_port_t Bootstrap::checkInOptional(const char *name) const
 {
 	mach_port_t port;
-	switch (kern_return_t err = ::bootstrap_check_in(mPort, makeName(name), &port)) {
+	kern_return_t err = ::bootstrap_check_in(mPort, makeName(name), &port);
+#ifdef DARLING
+	fprintf(stderr, "bootstrap_check_in(%s) bootstrap=0x%x kr=0x%x (%d) port=0x%x\n",
+		name, this->port(), err, err, port);
+#endif
+	switch (err) {
 	case BOOTSTRAP_SERVICE_ACTIVE:
     case BOOTSTRAP_UNKNOWN_SERVICE:
 	case BOOTSTRAP_NOT_PRIVILEGED:

@@ -526,17 +526,38 @@ void Server::loadCssm(bool mdsIsInstalled)
         if (err.unixError() == ENOSPC) {
             _exit(1);
         } else {
+#ifdef DARLING
+            fprintf(stderr, "securityd loadCssm UnixError %s; continuing without CSSM\n", err.what());
+            return;
+#else
             abort();
+#endif
         }
     } catch (const MacOSError& err) {
         secerror("load cssm failed: %s", err.what());
+#ifdef DARLING
+        fprintf(stderr, "securityd loadCssm MacOSError %s; continuing without CSSM\n", err.what());
+        return;
+#else
         abort();
+#endif
     } catch (const CommonError& err) {
         secerror("load cssm failed: %d/%d", (int)err.osStatus(), err.unixError());
+#ifdef DARLING
+        fprintf(stderr, "securityd loadCssm CommonError %d/%d; continuing without CSSM\n",
+            (int)err.osStatus(), err.unixError());
+        return;
+#else
         abort();
+#endif
     } catch (const std::exception& err) {
         secerror("load cssm failed: %s", err.what());
+#ifdef DARLING
+        fprintf(stderr, "securityd loadCssm exception %s; continuing without CSSM\n", err.what());
+        return;
+#else
         abort();
+#endif
     }
 }
 

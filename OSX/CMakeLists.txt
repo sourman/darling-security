@@ -147,6 +147,7 @@ add_separated_framework(Security
 
 	SOURCES
 		lib/dummy.cpp
+		extra_comet_stubs.c
 		sec/Security/SecFramework.c
 		sec/Security/SecSharedCredential.c
 		# sec/Security/SecSharedCredential.m

@@ -37,6 +37,8 @@
 #include <security_utilities/daemon.h>
 #include <security_utilities/machserver.h>
 #include <security_utilities/logging.h>
+#include <security_utilities/mach++.h>
+#include <exception>
 
 #include <Security/SecKeychainPriv.h>
 
@@ -78,6 +80,11 @@ int main(int argc, char *argv[])
 
 	// clear the umask - we know what we're doing
 	secnotice("SecServer", "starting umask was 0%o", ::umask(0));
+#ifdef DARLING
+	fprintf(stderr, "securityd darling start pid=%d ppid=%d uid=%d argv1=%s\n",
+		getpid(), getppid(), getuid(), argc > 1 ? argv[1] : "");
+	fflush(stderr);
+#endif
 	::umask(0);
 
 	// tell the keychain (client) layer to turn off the server interface
@@ -168,7 +175,10 @@ int main(int argc, char *argv[])
     // if we're not running as root in production mode, fail
     // in debug mode, issue a warning
     if (uid_t uid = getuid()) {
-#if defined(NDEBUG)
+#if defined(DARLING)
+        // Darling's prefix launchd is not pid 1 and jobs run as the prefix user.
+        fprintf(stderr, "securityd is unprivileged on Darling (uid=%d); continuing so MachServices can check in.\n", uid);
+#elif defined(NDEBUG)
         Syslog::alert("Tried to run securityd as user %d: aborted", uid);
         fprintf(stderr, "You are not allowed to run securityd\n");
         exit(1);
@@ -178,9 +188,13 @@ int main(int argc, char *argv[])
     }
     
     // turn into a properly diabolical daemon unless debugMode is on
+#ifdef DARLING
+    // Stay in launchd's process group so com.apple.SecurityServer check-in survives.
+#else
     if (!debugMode && getppid() != 1 && !Daemon::incarnate(false)) {
 		exit(1);	// can't daemonize
 	}
+#endif
         
     // arm signal handlers; code below may generate signals we want to see
     if (signal(SIGCHLD, handleSignals) == SIG_ERR
@@ -213,6 +227,9 @@ int main(int argc, char *argv[])
     new PreAuthorizationAcls::SourceMaker();
 #endif
     // establish the code equivalents database
+#ifdef DARLING
+    try {
+#endif
     CodeSignatures codeSignatures;
 
 
@@ -257,6 +274,15 @@ int main(int argc, char *argv[])
 	// fell out of runloop (should not happen)
 	Syslog::alert("Aborting");
     return 1;
+#ifdef DARLING
+    } catch (const Security::MachPlusPlus::Error &e) {
+	fprintf(stderr, "securityd MachPlusPlus::Error kr=%d (0x%x)\n", e.error, e.error);
+	return 1;
+    } catch (const std::exception &e) {
+	fprintf(stderr, "securityd exception: %s\n", e.what());
+	return 1;
+    }
+#endif
 }
 
 
