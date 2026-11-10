@@ -7,6 +7,7 @@
 #endif
 
 _kSecFrameworkBundleID
+_SecTrustCopyCertificateChain
 
 #include "Security/SecExports.exp-in"
 #include "Security/SecAccessControlExports.exp-in"

@@ -4876,6 +4876,11 @@ SecItemCopyMatching(CFDictionaryRef query, CFTypeRef *result)
 	if (!query) {
 		return errSecParam;
 	}
+	/* The OS X keychain search locks a mutex that never unwinds under Darling,
+	 * and Chromium calls this on the main thread before creating a window. */
+	if (result)
+		*result = NULL;
+	return errSecItemNotFound;
 	secitemshow(query, "SecItemCopyMatching query:");
 
 	OSStatus status_osx = errSecItemNotFound, status_ios = errSecItemNotFound;
@@ -4931,6 +4936,7 @@ SecItemAdd(CFDictionaryRef attributes, CFTypeRef *result)
 	else if (result) {
 		*result = NULL;
 	}
+	return errSecItemNotFound;
 	secitemshow(attributes, "SecItemAdd attrs:");
 
 	CFTypeRef result_osx = NULL, result_ios = NULL;
@@ -4980,6 +4986,7 @@ SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate)
 	if (!query || !attributesToUpdate) {
 		return errSecParam;
 	}
+	return errSecItemNotFound;
 	secitemshow(query, "SecItemUpdate query:");
 	secitemshow(attributesToUpdate, "SecItemUpdate attrs:");
 
@@ -5057,6 +5064,7 @@ SecItemDelete(CFDictionaryRef query)
 	if (!query) {
 		return errSecParam;
 	}
+	return errSecItemNotFound;
 	secitemshow(query, "SecItemDelete query:");
 
 	OSStatus status_osx = errSecItemNotFound, status_ios = errSecItemNotFound;

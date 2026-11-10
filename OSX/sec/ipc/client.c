@@ -39,6 +39,7 @@
 #include <syslog.h>
 #include <vproc_priv.h>
 #include <xpc/xpc.h>
+#include <dispatch/dispatch.h>
 #include <xpc/private.h>
 #include <os/feature_private.h>
 
@@ -422,13 +423,27 @@ securityd_message_with_reply_sync(xpc_object_t message, CFErrorRef *error)
     uint64_t operation = xpc_dictionary_get_uint64(message, kSecXPCKeyOperation);
     xpc_connection_t connection = securityd_connection_for_operation((enum SecXPCOperation)operation);
 
-    const int max_tries = SECURITYD_MAX_XPC_TRIES;
-
-    unsigned int tries_left = max_tries;
-    do {
-        if (reply) xpc_release(reply);
-        reply = xpc_connection_send_message_with_reply_sync(connection, message);
-    } while (reply == XPC_ERROR_CONNECTION_INTERRUPTED && --tries_left > 0);
+    /*
+     * The synchronous XPC wait never returns when secd does not answer, and
+     * Chromium calls SecItemCopyMatching on the main thread before it creates
+     * a window. Bound the wait so the browser can continue.
+     */
+    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+    __block xpc_object_t got = NULL;
+    xpc_connection_send_message_with_reply(connection, message,
+            dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
+            ^(xpc_object_t r) {
+                got = r;
+                if (got)
+                    xpc_retain(got);
+                dispatch_semaphore_signal(sem);
+            });
+    if (dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t) NSEC_PER_SEC / 2)) != 0) {
+        got = XPC_ERROR_CONNECTION_INVALID;
+        xpc_retain(got);
+    }
+    dispatch_release(sem);
+    reply = got;
 
 	_securityd_process_message_reply(&reply, error, connection, operation);
 

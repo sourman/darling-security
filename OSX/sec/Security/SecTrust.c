@@ -3007,3 +3007,10 @@ OSStatus SecTrustIncrementExceptionResetCount(CFErrorRef *error) {
 
     return status;
 }
+
+__attribute__((visibility("default"), used))
+void *SecTrustCopyCertificateChain(void *trust)
+{
+	(void)trust;
+	return 0;
+}
